@@ -1,6 +1,10 @@
 go 1.22.5
 
 use (
+	./consul
 	./payhub
 	./prometheus
+	./gin
+	./jaeger
+	./gateway
 )

@@ -4,57 +4,89 @@ import (
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"log"
+	"math/rand"
 	"net/http"
+	"time"
 )
 
-var (
-	// 定义一个Histogram类型的指标
-	requestDuration = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: "myapp",
-			Subsystem: "http_server",
-			Name:      "request_duration_seconds",
-			Help:      "Histogram of response latency (seconds) of http requests.",
-			Buckets:   prometheus.DefBuckets,
-		},
-		[]string{"method", "handler", "code"},
-	)
-	// 定义一个Counter类型的指标
-	requestTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "myapp",
-			Subsystem: "http_server",
-			Name:      "requests_total",
-			Help:      "Counter of http requests.",
-		},
-		[]string{"method", "handler", "code"},
-	)
+var httpRequestCount = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "http_request_count",
+		Help: "http request count",
+	},
+	[]string{"endpoint"},
+)
+
+var httpRequestDuration = prometheus.NewSummaryVec(
+	prometheus.SummaryOpts{
+		Name: "http_request_duration",
+		Help: "http request duration",
+	},
+	[]string{"endpoint"},
 )
 
 func init() {
-	// 注册指标
-	prometheus.MustRegister(requestDuration)
-	prometheus.MustRegister(requestTotal)
+	prometheus.MustRegister(httpRequestCount)
+	prometheus.MustRegister(httpRequestDuration)
 }
 
 func main() {
-	// 暴露metrics接口
 	http.Handle("/metrics", promhttp.Handler())
+	http.HandleFunc("/test", handler)
+	go func() {
+		fmt.Println("ListenAndServe on:8888")
+		http.ListenAndServe(":8888", nil)
+	}()
+	startClient()
+	doneChan := make(chan struct{})
+	<-doneChan
+}
 
-	// 定义业务路由
-	http.HandleFunc("/example", func(w http.ResponseWriter, r *http.Request) {
-		// 记录请求时间
-		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
-			requestDuration.WithLabelValues(r.Method, "/example", "200").Observe(v)
-		}))
-		defer timer.ObserveDuration()
+func handler(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	path := r.URL.Path
+	httpRequestCount.WithLabelValues(path).Inc()
 
-		// 记录请求总数
-		requestTotal.WithLabelValues(r.Method, "/example", "200").Inc()
+	n := rand.Intn(100)
+	if n >= 95 {
+		time.Sleep(100 * time.Millisecond)
+	} else {
+		time.Sleep(50 * time.Millisecond)
+	}
 
-		w.Write([]byte("Hello, Prometheus!"))
-	})
-	// .
-	fmt.Println("server is run ")
-	http.ListenAndServe(":8080", nil)
+	elapsed := (float64)(time.Since(start) / time.Millisecond)
+	httpRequestDuration.WithLabelValues(path).Observe(elapsed)
+}
+
+func startClient() {
+	sleepTime := 1000
+
+	go func() {
+		ticker := time.NewTicker(2 * time.Minute)
+		for {
+			<-ticker.C
+			sleepTime = 200
+			<-time.After(30 * time.Second)
+			sleepTime = 1000
+		}
+	}()
+
+	for i := 0; i < 100; i++ {
+		go func() {
+			for {
+				sendRequest()
+				time.Sleep((time.Duration)(sleepTime) * time.Millisecond)
+			}
+		}()
+	}
+}
+
+func sendRequest() {
+	resp, err := http.Get("http://localhost:8888/test")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	resp.Body.Close()
 }

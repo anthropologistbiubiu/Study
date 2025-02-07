@@ -6,6 +6,8 @@ import (
 	"github.com/go-kratos/kratos/contrib/registry/consul/v2"
 	"github.com/go-kratos/kratos/v2"
 	"github.com/hashicorp/consul/api"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	tracing "payhub/internal/traceing"
 
 	//"github.com/prometheus/client_golang/api"
@@ -35,6 +37,13 @@ var (
 
 func init() {
 	flag.StringVar(&flagconf, "conf", "../../configs", "config path, eg: -conf config.yaml")
+
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		),
+	)
 }
 
 func newApp(logger log.Logger, gs *grpc.Server, hs1 *http.Server, hs2 *http.Server) *kratos.App {

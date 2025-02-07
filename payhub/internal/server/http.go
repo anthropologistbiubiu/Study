@@ -61,6 +61,7 @@ func NewHTTPServer1(c *conf.Server, pay *service.PaymentOrderService, logger log
 	}
 	srv := http.NewServer(opts...)
 	srv.Handle("/metrics", promhttp.Handler())
+	//srv.HandleFunc("/hello", helloHandler)
 	v1.RegisterPaymentSerivceHTTPServer(srv, pay)
 	return srv
 }
