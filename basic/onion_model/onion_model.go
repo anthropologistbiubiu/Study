@@ -25,10 +25,20 @@ func LoggerMiddler(next http.Handler) http.Handler {
 }
 
 type Router struct {
-	routers map[string]string
+	routers map[string]http.Handler
 }
 
 func (router *Router) ServeHTTP(r http.ResponseWriter, w *http.Request) {
-
+	handler, ok := router.routers[w.URL.Path]
+	if ok {
+		handler.ServeHTTP(r, w)
+	}
 }
 
+func (router *Router) Handler(path string, handler http.Handler) {
+	router.routers[path] = handler
+}
+
+func main() {
+
+}
