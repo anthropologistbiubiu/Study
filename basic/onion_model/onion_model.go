@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -32,6 +33,8 @@ func (router *Router) ServeHTTP(r http.ResponseWriter, w *http.Request) {
 	handler, ok := router.routers[w.URL.Path]
 	if ok {
 		handler.ServeHTTP(r, w)
+	} else {
+		http.NotFound(r, w)
 	}
 }
 
@@ -40,5 +43,21 @@ func (router *Router) Handler(path string, handler http.Handler) {
 }
 
 func main() {
+	router := &Router{
+		routers: make(map[string]http.Handler),
+	}
+	router.Handler("/hello", http.HandlerFunc(func(r http.ResponseWriter, w *http.Request) {
+		r.Write([]byte("hello world!"))
+	}))
+	composer := HTTPChain(LoggerMiddler)(router)
+	server := http.Server{
+		Addr:    ":8081",
+		Handler: composer,
+	}
+	if err := server.ListenAndServe(); err != nil {
+		fmt.Println("run failed", err)
+	} else {
+		fmt.Println("server is run on 8081")
+	}
 
 }
