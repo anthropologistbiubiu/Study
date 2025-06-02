@@ -1,0 +1,11 @@
+syntax = "proto3";
+package xlsp;
+
+
+message ActivityWeight {
+  uint32 Id     = 1;
+  uint32 Weight = 2;
+}
+message ActivityWeightList {
+  repeated ActivityWeight items = 1;
+}
